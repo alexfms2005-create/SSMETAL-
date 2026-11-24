@@ -1,21 +1,30 @@
+import 'dotenv/config';
 import mysql from 'mysql2/promise';
 
-// 1. Ensure database ssmf_db exists in MySQL
+const DB_HOST = process.env.DB_HOST || '127.0.0.1';
+const DB_PORT = Number(process.env.DB_PORT) || 3306;
+const DB_USER = process.env.DB_USER || 'root';
+const DB_PASSWORD = process.env.DB_PASSWORD || '';
+const DB_NAME = process.env.DB_NAME || 'ssmf_db';
+
+// 1. Ensure database exists in MySQL
 const initConnection = await mysql.createConnection({
-  host: '127.0.0.1',
-  user: 'root',
-  password: ''
+  host: DB_HOST,
+  port: DB_PORT,
+  user: DB_USER,
+  password: DB_PASSWORD
 });
 
-await initConnection.query('CREATE DATABASE IF NOT EXISTS ssmf_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;');
+await initConnection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
 await initConnection.end();
 
-// 2. Create connection pool to ssmf_db
+// 2. Create connection pool to the specified database
 const pool = mysql.createPool({
-  host: '127.0.0.1',
-  user: 'root',
-  password: '',
-  database: 'ssmf_db',
+  host: DB_HOST,
+  port: DB_PORT,
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -63,7 +72,7 @@ await pool.query(`
 // 4. Seed initial records if empty
 const [countRows] = await pool.query('SELECT COUNT(*) as count FROM work_orders');
 if (countRows[0].count === 0) {
-  console.log('🌱 Seeding initial records into MySQL database `ssmf_db`...');
+  console.log(`🌱 Seeding initial records into MySQL database \`${DB_NAME}\`...`);
 
   // Furnaces
   await pool.query(`
@@ -100,7 +109,7 @@ if (countRows[0].count === 0) {
     ON DUPLICATE KEY UPDATE client=VALUES(client);
   `);
 
-  console.log('✅ Base de datos MySQL `ssmf_db` inicializada y cargada con éxito.');
+  console.log(`✅ Base de datos MySQL \`${DB_NAME}\` inicializada y cargada con éxito.`);
 }
 
 export default pool;
