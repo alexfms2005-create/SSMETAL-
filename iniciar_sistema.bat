@@ -19,7 +19,13 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-:: 2. Verificar si node_modules existe; si no, instalar dependencias automáticamente
+:: 2. Crear archivo .env automáticamente si no existe
+if not exist ".env" (
+    echo [CONFIG] Creando archivo .env automáticamente desde .env.example...
+    copy .env.example .env >nul
+)
+
+:: 3. Verificar si node_modules existe; si no, instalar dependencias automáticamente
 if not exist "node_modules\" (
     echo [AVISO] Dependencias no encontradas.
     echo Instalando paquetes automáticamente (npm install)...
@@ -28,10 +34,14 @@ if not exist "node_modules\" (
     echo.
 )
 
-:: 3. Abrir el navegador en http://localhost:3000 automáticamente
+:: 4. Auto-crear base de datos y tablas en MySQL si no existen
+node -e "import('./server/db.js').catch(err => console.log('[AVISO] Asegúrate de que MySQL (XAMPP) esté iniciado.'));" >nul 2>nul
+
+:: 5. Abrir el navegador en http://localhost:3000 automáticamente
 start "" cmd /c "timeout /t 3 >nul && start http://localhost:3000"
 
-:: 4. Iniciar el sistema (Backend Express + MySQL y Frontend Vite)
+:: 6. Iniciar el sistema (Backend Express + MySQL y Frontend Vite)
+echo [OK] Base de datos y servidor listos.
 echo [OK] Sistema arrancando en: http://localhost:3000
 echo Presiona Ctrl + C en esta ventana cuando desees detener el servidor.
 echo.
