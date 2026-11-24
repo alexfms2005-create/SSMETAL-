@@ -168,7 +168,7 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
 
           {/* MATERIALES REQUERIDOS */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5 flex items-center gap-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1.5">
               <span>⚙️ MATERIALES REQUERIDOS</span>
             </label>
             
@@ -223,7 +223,7 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
 
           {/* FECHA ESTIMADA DE ENTREGA (Calendario) */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-2 flex items-center gap-1.5 font-sans">
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-2 font-sans">
               <CalendarIcon className="w-3.5 h-3.5 text-orange-400" />
               <span>FECHA ESTIMADA DE ENTREGA</span>
             </label>
@@ -305,7 +305,7 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
 
             {/* HORNOS DISPONIBLES */}
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-2 flex items-center gap-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-2">
                 <span>🎛️ HORNOS DISPONIBLES</span>
               </label>
 
@@ -373,7 +373,7 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
 
             {/* NOTAS / ESPECIFICACIONES */}
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1.5 flex items-center gap-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1.5">
                 <span>📄 NOTAS / ESPECIFICACIONES</span>
               </label>
               <textarea
