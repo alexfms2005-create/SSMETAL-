@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #0f1115;
+    color: #e2e8f0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+/* Custom industrial scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #12151a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a303c;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e53935;
+}
+
+/* Industrial glow effects */
+.glow-red {
+  box-shadow: 0 0 15px rgba(229, 57, 53, 0.35);
+}
+
+.glow-orange {
+  box-shadow: 0 0 18px rgba(245, 124, 0, 0.28);
+}
+
+.glow-green {
+  box-shadow: 0 0 12px rgba(46, 125, 50, 0.35);
+}
+
+/* Metallic panel border */
+.foundry-panel {
+  background: #181b20;
+  border: 1px solid #282e38;
+}
+
+.foundry-card {
+  background: #1e2229;
+  border: 1px solid #2d3440;
+}
