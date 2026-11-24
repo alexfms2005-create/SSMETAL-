@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Calendar as CalendarIcon, Flame, Plus, X, Check, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Flame, Plus, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { availableMaterials } from '../data/mockData';
+
+const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
   const [otNumber] = useState(nextOTNumber || 'OT-2026-092');
@@ -12,12 +14,54 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
   ]);
   const [materialDropdown, setMaterialDropdown] = useState('');
   const [quantityKg, setQuantityKg] = useState('1200');
-  const [selectedDay, setSelectedDay] = useState(18);
-  const [selectedMonth] = useState('Nov');
-  const [selectedYear] = useState(2026);
+
+  // Fully functional calendar state (defaults to 18 Nov 2026 as in mockup)
+  const [selectedDate, setSelectedDate] = useState({ day: 18, month: 10, year: 2026 }); // month 10 = Nov
+  const [viewDate, setViewDate] = useState({ month: 10, year: 2026 });
+
   const [selectedFurnaceId, setSelectedFurnaceId] = useState('horno-b');
   const [notes, setNotes] = useState('Monitorear temperatura de vaciado a 1550°C.');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+  // Calendar navigation functions
+  const handlePrevMonth = () => {
+    setViewDate((prev) => {
+      if (prev.month === 0) {
+        return { month: 11, year: prev.year - 1 };
+      }
+      return { ...prev, month: prev.month - 1 };
+    });
+  };
+
+  const handleNextMonth = () => {
+    setViewDate((prev) => {
+      if (prev.month === 11) {
+        return { month: 0, year: prev.year + 1 };
+      }
+      return { ...prev, month: prev.month + 1 };
+    });
+  };
+
+  const handleSelectDay = (day) => {
+    setSelectedDate({
+      day,
+      month: viewDate.month,
+      year: viewDate.year
+    });
+  };
+
+  // Compute days in current view month
+  const daysInViewMonth = new Date(viewDate.year, viewDate.month + 1, 0).getDate();
+  // Monday = 0, Sunday = 6
+  const firstDayOfWeek = (new Date(viewDate.year, viewDate.month, 1).getDay() + 6) % 7;
+
+  const calendarGrid = [];
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    calendarGrid.push(null);
+  }
+  for (let d = 1; d <= daysInViewMonth; d++) {
+    calendarGrid.push(d);
+  }
 
   const addMaterial = (mat) => {
     if (mat && !selectedMaterials.includes(mat)) {
@@ -43,6 +87,8 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
 
     const furnace = furnaces.find((f) => f.id === selectedFurnaceId);
 
+    const formattedDate = `${String(selectedDate.day).padStart(2, '0')} / ${MONTH_NAMES[selectedDate.month]} / ${selectedDate.year}`;
+
     const newOT = {
       id: otNumber,
       furnaceId: selectedFurnaceId,
@@ -55,23 +101,13 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
       quantityKg: Number(quantityKg) || 1200,
       color: 'orange',
       notes: notes,
-      deliveryDate: `${selectedDay}/${selectedMonth}/${selectedYear}`
+      deliveryDate: formattedDate
     };
 
     onGenerateOT(newOT);
     setShowSuccessToast(true);
     setTimeout(() => setShowSuccessToast(false), 4000);
   };
-
-  // Days for the November 2026 mini calendar
-  const calendarDays = [
-    { day: null }, { day: null }, { day: null }, { day: null }, { day: null }, { day: null }, { day: 1 },
-    { day: 2 }, { day: 3 }, { day: 4 }, { day: 5 }, { day: 6 }, { day: 7 }, { day: 8 },
-    { day: 9 }, { day: 10 }, { day: 11 }, { day: 12 }, { day: 13 }, { day: 14 }, { day: 15 },
-    { day: 16 }, { day: 17 }, { day: 18 }, { day: 19 }, { day: 20 }, { day: 21 }, { day: 22 },
-    { day: 23 }, { day: 24 }, { day: 25 }, { day: 26 }, { day: 27 }, { day: 28 }, { day: 29 },
-    { day: 30 }
-  ];
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -111,7 +147,7 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
               type="text"
               readOnly
               value={otNumber}
-              className="w-full bg-[#1e2229] border border-[#2c333f] text-gray-300 text-sm rounded-lg px-3.5 py-2.5 focus:outline-none cursor-not-allowed font-mono"
+              className="w-full bg-[#1e2229] border border-[#2c333f] text-gray-300 text-sm rounded-lg px-3.5 py-2.5 focus:outline-none cursor-not-allowed font-sans"
             />
           </div>
 
@@ -173,33 +209,49 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
 
           {/* Cantidad Total (Kg) */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+            <label className="block text-xs font-medium text-gray-400 mb-1.5 font-sans">
               Cantidad Total (Kg):
             </label>
             <input
               type="number"
               value={quantityKg}
               onChange={(e) => setQuantityKg(e.target.value)}
-              className="w-full bg-[#1e2229] border border-[#2c333f] text-white text-sm rounded-lg px-3.5 py-2.5 focus:border-[#e53935] focus:outline-none font-mono"
+              className="w-full bg-[#1e2229] border border-[#2c333f] text-white text-sm rounded-lg px-3.5 py-2.5 focus:border-[#e53935] focus:outline-none font-sans [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               required
             />
           </div>
 
           {/* FECHA ESTIMADA DE ENTREGA (Calendario) */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-2 flex items-center gap-1.5">
+            <label className="block text-xs font-medium text-gray-400 mb-2 flex items-center gap-1.5 font-sans">
               <CalendarIcon className="w-3.5 h-3.5 text-orange-400" />
               <span>FECHA ESTIMADA DE ENTREGA</span>
             </label>
 
-            <div className="bg-[#1e2229] border border-[#2c333f] rounded-lg p-3 text-xs">
-              {/* Calendar Header */}
+            <div className="bg-[#1e2229] border border-[#2c333f] rounded-lg p-3 text-xs select-none font-sans">
+              {/* Calendar Header with exact matching typography */}
               <div className="flex items-center justify-between text-gray-300 font-semibold mb-3 px-2">
-                <span className="text-gray-400 cursor-pointer hover:text-white">&lt;</span>
-                <span className="tracking-wide">
-                  {selectedDay} / {selectedMonth} / {selectedYear}
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  title="Mes anterior"
+                  className="text-gray-400 hover:text-white font-sans text-sm font-bold px-2 py-0.5 rounded hover:bg-[#2b3340] transition select-none cursor-pointer"
+                >
+                  &lt;
+                </button>
+                <span className="tracking-wide text-xs sm:text-sm font-semibold text-gray-200 font-sans">
+                  {selectedDate.month === viewDate.month && selectedDate.year === viewDate.year
+                    ? `${selectedDate.day} / ${MONTH_NAMES[viewDate.month]} / ${viewDate.year}`
+                    : `${MONTH_NAMES[viewDate.month]} / ${viewDate.year}`}
                 </span>
-                <span className="text-gray-400 cursor-pointer hover:text-white">&gt;</span>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  title="Mes siguiente"
+                  className="text-gray-400 hover:text-white font-sans text-sm font-bold px-2 py-0.5 rounded hover:bg-[#2b3340] transition select-none cursor-pointer"
+                >
+                  &gt;
+                </button>
               </div>
 
               {/* Day names */}
@@ -215,23 +267,27 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
 
               {/* Days grid */}
               <div className="grid grid-cols-7 gap-1 text-center">
-                {calendarDays.map((item, idx) => {
-                  if (!item.day) {
-                    return <div key={idx} className="h-7 w-7" />;
+                {calendarGrid.map((day, idx) => {
+                  if (day === null) {
+                    return <div key={`empty-${idx}`} className="h-7 w-7" />;
                   }
-                  const isSelected = selectedDay === item.day;
+                  const isSelected =
+                    selectedDate.day === day &&
+                    selectedDate.month === viewDate.month &&
+                    selectedDate.year === viewDate.year;
+
                   return (
                     <button
-                      key={idx}
+                      key={`day-${day}`}
                       type="button"
-                      onClick={() => setSelectedDay(item.day)}
-                      className={`h-7 w-7 mx-auto flex items-center justify-center rounded-full text-xs font-medium transition ${
+                      onClick={() => handleSelectDay(day)}
+                      className={`h-7 w-7 mx-auto flex items-center justify-center rounded-full text-xs transition transform active:scale-90 ${
                         isSelected
-                          ? 'bg-[#e53935] text-white shadow-[0_0_10px_rgba(229,57,53,0.7)] font-bold'
-                          : 'text-gray-300 hover:bg-[#2b3340]'
+                          ? 'bg-[#e53935] text-white shadow-[0_0_12px_rgba(229,57,53,0.8)] font-bold scale-105'
+                          : 'text-gray-300 hover:bg-[#2b3340] hover:text-white'
                       }`}
                     >
-                      {item.day}
+                      {day}
                     </button>
                   );
                 })}
