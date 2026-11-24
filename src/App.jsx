@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import TabAltaOT from './components/TabAltaOT';
 import TabProcesoFundicion from './components/TabProcesoFundicion';
@@ -7,15 +7,56 @@ import ModalReportes from './components/ModalReportes';
 import { initialFurnaces, initialActiveOTs, initialCompletedOTs } from './data/mockData';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('proceso'); // defaults to 'proceso' or can be switched
+  const [activeTab, setActiveTab] = useState('proceso');
   const [furnaces, setFurnaces] = useState(initialFurnaces);
   const [activeOTs, setActiveOTs] = useState(initialActiveOTs);
   const [completedOTs, setCompletedOTs] = useState(initialCompletedOTs);
-  const [nextOTCounter, setNextOTCounter] = useState(92);
-  const [modalType, setModalType] = useState(null); // 'quality' | 'history' | null
+  const [nextOTFolio, setNextOTFolio] = useState('OT-2026-092');
+  const [modalType, setModalType] = useState(null);
   const [currentTime, setCurrentTime] = useState('');
+  const [dbConnected, setDbConnected] = useState(false);
 
-  // Clock updater with format matching screenshots: DD/Mes/YYYY, HH:mm:ss
+  // Fetch all data from SQLite database API
+  const loadDatabaseData = useCallback(async () => {
+    try {
+      const [otsRes, furnacesRes, folioRes] = await Promise.all([
+        fetch('/api/ots').catch(() => null),
+        fetch('/api/furnaces').catch(() => null),
+        fetch('/api/next-folio').catch(() => null)
+      ]);
+
+      if (otsRes && otsRes.ok) {
+        const otsData = await otsRes.json();
+        if (otsData.inProgress && otsData.completed) {
+          setActiveOTs(otsData.inProgress);
+          setCompletedOTs(otsData.completed);
+          setDbConnected(true);
+        }
+      }
+
+      if (furnacesRes && furnacesRes.ok) {
+        const furnacesData = await furnacesRes.json();
+        if (Array.isArray(furnacesData) && furnacesData.length > 0) {
+          setFurnaces(furnacesData);
+        }
+      }
+
+      if (folioRes && folioRes.ok) {
+        const folioData = await folioRes.json();
+        if (folioData.nextFolio) {
+          setNextOTFolio(folioData.nextFolio);
+        }
+      }
+    } catch (err) {
+      console.warn('Working in local mode (API offline):', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDatabaseData();
+  }, [loadDatabaseData]);
+
+  // Real-time clock updater
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -34,12 +75,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Handler: Generate new OT from Alta de OT form
-  const handleGenerateOT = (newOT) => {
+  // Handler: Generate new OT and persist to SQLite Database
+  const handleGenerateOT = async (newOT) => {
+    // Optimistic UI update
     setActiveOTs((prev) => [newOT, ...prev]);
-    setNextOTCounter((prev) => prev + 1);
 
-    // If assigned to a furnace, update furnace status
+    // Update furnace
     setFurnaces((prev) =>
       prev.map((f) => {
         if (f.id === newOT.furnaceId) {
@@ -55,14 +96,30 @@ export default function App() {
       })
     );
 
-    // Automatically transition to 'proceso' tab after 1.2s to show the result
+    // Persist to SQLite Database via POST /api/ots
+    try {
+      const res = await fetch('/api/ots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newOT)
+      });
+
+      if (res.ok) {
+        // Refresh folio and data
+        loadDatabaseData();
+      }
+    } catch (err) {
+      console.error('Error saving OT to database:', err);
+    }
+
+    // Automatically transition to 'proceso' tab
     setTimeout(() => {
       setActiveTab('proceso');
     }, 1200);
   };
 
   // Handler: Quick assign recommendation (e.g. OT-2026-090 to Horno B)
-  const handleAssignRecommendation = (otId, furnaceId) => {
+  const handleAssignRecommendation = async (otId, furnaceId) => {
     setActiveOTs((prev) =>
       prev.map((ot) => {
         if (ot.id === otId) {
@@ -92,11 +149,26 @@ export default function App() {
       })
     );
 
+    try {
+      await fetch(`/api/ots/${otId}/progress`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progress: 80, phase: 'Fusión iniciada (80%)', remainingMinutes: 20 })
+      });
+      await fetch(`/api/furnaces/${furnaceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'EN PROCESO', activeOT: otId, currentTemp: 1510 })
+      });
+    } catch (err) {
+      console.warn('Sync error:', err);
+    }
+
     alert(`¡OT ${otId} asignada exitosamente a Horno B aprovechando calor residual y optimizando energía!`);
   };
 
   // Handler: Start Recommended OT from Continuity tab (OT-2026-092 for Horno A)
-  const handleStartRecommendedOT = (otId, furnaceId) => {
+  const handleStartRecommendedOT = async (otId, furnaceId) => {
     const newOT = {
       id: otId,
       furnaceId: furnaceId,
@@ -125,11 +197,24 @@ export default function App() {
       })
     );
 
+    try {
+      await fetch('/api/ots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newOT)
+      });
+    } catch (err) {
+      console.warn('Database save error:', err);
+    }
+
     setActiveTab('proceso');
   };
 
-  // Handler: Advance OT progress
-  const handleAdvanceOT = (otId) => {
+  // Handler: Advance OT progress with DB sync
+  const handleAdvanceOT = async (otId) => {
+    let updatedOT = null;
+    let isCompleted = false;
+
     setActiveOTs((prev) => {
       return prev.map((ot) => {
         if (ot.id === otId) {
@@ -143,7 +228,8 @@ export default function App() {
           } else if (newProgress >= 100) {
             newPhase = 'Colada Completa (100%)';
             newRemaining = 0;
-            // Move to completed OTs
+            isCompleted = true;
+
             setTimeout(() => {
               setCompletedOTs((comp) => [
                 {
@@ -166,33 +252,75 @@ export default function App() {
             newPhase = `Fusión (${newProgress}%)`;
           }
 
-          return {
+          updatedOT = {
             ...ot,
             progress: newProgress,
             phase: newPhase,
             remainingMinutes: newRemaining
           };
+          return updatedOT;
         }
         return ot;
       });
     });
+
+    // Sync to SQLite Database
+    try {
+      if (isCompleted) {
+        await fetch(`/api/ots/${otId}/complete`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            completedDate: 'Hoy',
+            realTime: '3h 30m (¡Éxito en tiempo!)',
+            badge: 'LOGRADA EN TIEMPO Y FORMA'
+          })
+        });
+      } else if (updatedOT) {
+        await fetch(`/api/ots/${otId}/progress`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            progress: updatedOT.progress,
+            phase: updatedOT.phase,
+            remainingMinutes: updatedOT.remainingMinutes
+          })
+        });
+      }
+    } catch (err) {
+      console.warn('Database sync error:', err);
+    }
   };
 
   // Handler: Toggle furnace enabled/state
-  const handleToggleFurnace = (furnaceId) => {
+  const handleToggleFurnace = async (furnaceId) => {
+    let nextEnabled = true;
+    let nextStatus = 'LIBRE';
+
     setFurnaces((prev) =>
       prev.map((f) => {
         if (f.id === furnaceId) {
-          const newEnabled = !f.enabled;
+          nextEnabled = !f.enabled;
+          nextStatus = nextEnabled ? 'LIBRE' : 'MANTENIMIENTO';
           return {
             ...f,
-            enabled: newEnabled,
-            status: newEnabled ? 'LIBRE' : 'MANTENIMIENTO'
+            enabled: nextEnabled,
+            status: nextStatus
           };
         }
         return f;
       })
     );
+
+    try {
+      await fetch(`/api/furnaces/${furnaceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextEnabled, status: nextStatus })
+      });
+    } catch (err) {
+      console.warn('Sync furnace error:', err);
+    }
   };
 
   return (
@@ -210,7 +338,7 @@ export default function App() {
           <TabAltaOT
             furnaces={furnaces}
             onGenerateOT={handleGenerateOT}
-            nextOTNumber={`OT-2026-0${nextOTCounter}`}
+            nextOTNumber={nextOTFolio}
           />
         )}
 
@@ -236,17 +364,22 @@ export default function App() {
 
       {/* Footer bar */}
       <footer className="bg-[#0e1014] border-t border-[#1e232b] px-6 py-2 text-[11px] text-gray-500 flex items-center justify-between">
-        <div>
+        <div className="flex items-center gap-2">
           <span>SSMF SS METAL FOUNDRY &copy; 2026</span>
           <span className="mx-2">•</span>
           <span>Planta Fundición de Aceros Especiales</span>
+          <span className="mx-2">•</span>
+          <span className="flex items-center gap-1 text-gray-400">
+            <span className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-orange-500'}`} />
+            Base de Datos SQLite: <strong className={dbConnected ? 'text-green-400 font-normal' : 'text-orange-400 font-normal'}>{dbConnected ? 'Conectada (foundry.sqlite)' : 'En espera'}</strong>
+          </span>
         </div>
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
             Telemetría SCADA en línea
           </span>
-          <span className="text-gray-400 font-mono">v2.4-PROD</span>
+          <span className="text-gray-400 font-mono">v2.5-PROD</span>
         </div>
       </footer>
 
