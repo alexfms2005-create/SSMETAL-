@@ -1,5 +1,6 @@
 # SSMF - SS Metal Foundry 🏭
-### Sistema de Control de Piso, Operaciones y Monitoreo de Hornos (MES / SCADA)
+
+## Sistema de Control de Piso, Operaciones y Monitoreo de Hornos (MES / SCADA)
 
 ![SSMF Banner](public/Imagenes/Logo.png)
 
@@ -10,12 +11,14 @@ Sistema integral de gestión de producción, control de coladas y telemetría de
 ## 🚀 Características Principales
 
 ### 1. 📋 Alta de Orden de Trabajo (OT)
+
 * **Folios autogenerados:** Asignación secuencial automática (`OT-2026-092`, `OT-2026-093`, etc.) consultada directamente desde la base de datos.
 * **Selector de materiales con etiquetas dinámicas:** Permite seleccionar y remover aleaciones (*Acero al Carbón, Chatarra de Retorno, Ferroaleaciones, Aleación Especial, Hierro Nodular, etc.*).
 * **Calendario de entrega interactivo:** Navegación mes a mes y año a año con selección visual de días y estilo térmico idéntico al panel industrial.
 * **Matriz de hornos en tiempo real:** Visualización de capacidades (*Horno A: 1.5 Ton, Horno B: 1.8 Ton, Horno C: 2.0 Ton*), switches de control e indicadores de ocupación (*Ocupado / Disponible / Mantenimiento*).
 
 ### 2. 🔥 Proceso de Fundición (Monitoreo en Vivo)
+
 * **Barras de progreso en tiempo real:** Seguimiento porcentual de avance por colada con fases operativas (*Carga, Fusión, Afino, Vaciado a Crisol*) y tiempo restante estimado.
 * **Telemetría de hornos:** Curvas SVG dinámicas de calentamiento con picos térmicos hasta **1550°C** y monitoreo de tonelaje.
 * **Simulación interactiva:** Botón para avanzar el ciclo de colada en piso (+10%). Al alcanzar el 100%, la orden se traslada automáticamente a terminadas.
@@ -24,6 +27,7 @@ Sistema integral de gestión de producción, control de coladas y telemetría de
   * **Prevención de porosidad:** Alertas rojas de advertencia que impiden programar aleaciones incompatibles tras acero sin previa limpieza.
 
 ### 3. 📊 OTs Terminadas, Calidad & Analítica
+
 * **Historial de coladas exitosas:** Registro de OTs con insignia `✓ LOGRADA EN TIEMPO Y FORMA` y comparativa de tiempo estimado vs. tiempo real.
 * **Métricas OEE:** Gráfica de dona con efectividad del **94%** de cumplimiento a tiempo y resumen de cero moldes porosos reportados.
 * **Descarga de Reportes:**
@@ -81,25 +85,30 @@ SSMETAL/
 ## ⚡ Instalación y Puesta en Marcha
 
 ### Prerrequisitos
+
 1. **Node.js** (v18 o superior).
 2. **Servidor MySQL activo** (por ejemplo, XAMPP, WampServer o servicio MySQL en el puerto estándar `3306` con usuario `root` y sin contraseña por defecto).
 
 ### 1. Clonar o ingresar al directorio
+
 ```bash
 cd SSMETAL
 ```
 
 ### 2. Instalar dependencias
+
 ```bash
 npm install
 ```
 
 ### 3. Iniciar el sistema (Frontend + Base de Datos simultáneamente)
+
 ```bash
 npm run dev
 ```
 
 El comando iniciará automáticamente:
+
 * 🌐 **Frontend (Vite):** [http://localhost:3000](http://localhost:3000)
 * ⚙️ **API Backend (Express):** [http://localhost:3001](http://localhost:3001)
 * 🗄️ **Base de Datos:** Se conectará automáticamente a MySQL y creará la base de datos **`ssmf_db`** (visible en phpMyAdmin).
