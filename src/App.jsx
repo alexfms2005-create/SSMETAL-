@@ -371,7 +371,7 @@ export default function App() {
           <span className="mx-2">•</span>
           <span className="flex items-center gap-1 text-gray-400">
             <span className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-orange-500'}`} />
-            Base de Datos SQLite: <strong className={dbConnected ? 'text-green-400 font-normal' : 'text-orange-400 font-normal'}>{dbConnected ? 'Conectada (foundry.sqlite)' : 'En espera'}</strong>
+            Base de Datos MySQL: <strong className={dbConnected ? 'text-green-400 font-normal' : 'text-orange-400 font-normal'}>{dbConnected ? 'Conectada (ssmf_db)' : 'En espera'}</strong>
           </span>
         </div>
         <div className="flex items-center gap-4">

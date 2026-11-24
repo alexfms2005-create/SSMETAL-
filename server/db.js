@@ -1,200 +1,106 @@
-import { DatabaseSync } from 'node:sqlite';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import mysql from 'mysql2/promise';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 1. Ensure database ssmf_db exists in MySQL
+const initConnection = await mysql.createConnection({
+  host: '127.0.0.1',
+  user: 'root',
+  password: ''
+});
 
-const dbPath = path.join(__dirname, 'foundry.sqlite');
-const db = new DatabaseSync(dbPath);
+await initConnection.query('CREATE DATABASE IF NOT EXISTS ssmf_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;');
+await initConnection.end();
 
-// Enable WAL mode for performance and concurrent readers
-db.exec('PRAGMA journal_mode = WAL;');
+// 2. Create connection pool to ssmf_db
+const pool = mysql.createPool({
+  host: '127.0.0.1',
+  user: 'root',
+  password: '',
+  database: 'ssmf_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
 
-// Initialize tables
-db.exec(`
+// 3. Create tables if not exists
+await pool.query(`
   CREATE TABLE IF NOT EXISTS work_orders (
-    id TEXT PRIMARY KEY,
-    client TEXT NOT NULL,
-    material TEXT NOT NULL,
-    quantity_kg REAL NOT NULL,
-    delivery_date TEXT,
-    furnace_id TEXT,
-    furnace_name TEXT,
-    status TEXT NOT NULL DEFAULT 'in_progress', -- 'in_progress' or 'completed'
-    progress INTEGER DEFAULT 0,
-    phase TEXT,
-    remaining_minutes INTEGER DEFAULT 180,
-    color TEXT DEFAULT 'orange',
+    id VARCHAR(50) PRIMARY KEY,
+    client VARCHAR(255) NOT NULL,
+    material VARCHAR(255) NOT NULL,
+    quantity_kg DECIMAL(10, 2) NOT NULL,
+    delivery_date VARCHAR(100),
+    furnace_id VARCHAR(50),
+    furnace_name VARCHAR(100),
+    status VARCHAR(50) NOT NULL DEFAULT 'in_progress',
+    progress INT DEFAULT 0,
+    phase VARCHAR(100),
+    remaining_minutes INT DEFAULT 180,
+    color VARCHAR(50) DEFAULT 'orange',
     notes TEXT,
-    badge TEXT,
-    completed_date TEXT,
-    estimated_time TEXT,
-    real_time TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS furnaces (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    capacity TEXT NOT NULL,
-    capacity_kg REAL NOT NULL,
-    status TEXT NOT NULL,
-    current_temp INTEGER NOT NULL,
-    target_temp INTEGER NOT NULL,
-    active_ot TEXT,
-    material TEXT,
-    enabled INTEGER DEFAULT 1
+    badge VARCHAR(100),
+    completed_date VARCHAR(100),
+    estimated_time VARCHAR(100),
+    real_time VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 `);
 
-// Check if seeding is needed
-const countStmt = db.prepare('SELECT COUNT(*) as count FROM work_orders');
-const { count } = countStmt.get();
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS furnaces (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    capacity VARCHAR(50) NOT NULL,
+    capacity_kg DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    current_temp INT NOT NULL,
+    target_temp INT NOT NULL,
+    active_ot VARCHAR(50),
+    material VARCHAR(100),
+    enabled TINYINT(1) DEFAULT 1
+  );
+`);
 
-if (count === 0) {
-  console.log('🌱 Seeding initial foundry database records...');
+// 4. Seed initial records if empty
+const [countRows] = await pool.query('SELECT COUNT(*) as count FROM work_orders');
+if (countRows[0].count === 0) {
+  console.log('🌱 Seeding initial records into MySQL database `ssmf_db`...');
 
-  const insertFurnace = db.prepare(`
+  // Furnaces
+  await pool.query(`
     INSERT INTO furnaces (id, name, capacity, capacity_kg, status, current_temp, target_temp, active_ot, material, enabled)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES 
+      ('horno-a', 'HORNO A', '1.5 Ton', 1500, 'EN PROCESO', 1550, 1550, 'OT-2026-087', 'Acero al Carbón', 1),
+      ('horno-b', 'HORNO B', '1.8 Ton', 1800, 'LIBRE', 1450, 0, NULL, 'Residual Acero al Carbón', 1),
+      ('horno-c', 'HORNO C', '2.0 Ton', 2000, 'MANTENIMIENTO', 85, 0, NULL, 'Inactivo', 0)
+    ON DUPLICATE KEY UPDATE name=VALUES(name);
   `);
 
-  insertFurnace.run('horno-a', 'HORNO A', '1.5 Ton', 1500, 'EN PROCESO', 1550, 1550, 'OT-2026-087', 'Acero al Carbón', 1);
-  insertFurnace.run('horno-b', 'HORNO B', '1.8 Ton', 1800, 'LIBRE', 1450, 0, null, 'Residual Acero al Carbón', 1);
-  insertFurnace.run('horno-c', 'HORNO C', '2.0 Ton', 2000, 'MANTENIMIENTO', 85, 0, null, 'Inactivo', 0);
+  // Active work orders
+  await pool.query(`
+    INSERT INTO work_orders (
+      id, client, material, quantity_kg, delivery_date, furnace_id, furnace_name,
+      status, progress, phase, remaining_minutes, color, notes
+    ) VALUES
+      ('OT-2026-089', 'Maquinaria Industrial S.A.', 'Acero al Carbón', 1200, '18 / Nov / 2026', 'horno-a', 'Horno A', 'in_progress', 85, 'Fusión (85%)', 25, 'orange', 'Monitorear temperatura de vaciado a 1550°C.'),
+      ('OT-2026-090', 'Aceros del Bajío S.A.', 'Acero al Carbón', 1400, '19 / Nov / 2026', 'horno-b', 'Horno B', 'in_progress', 75, 'Fusión (85%)', 25, 'red', 'Precalentamiento rápido optimizado.'),
+      ('OT-2026-091', 'Estructuras Pesadas S.A.', 'Acero al Carbón', 1100, '20 / Nov / 2026', 'horno-a', 'Horno A', 'in_progress', 85, 'Fusión (85%)', 25, 'red', 'Verificar escoria.')
+    ON DUPLICATE KEY UPDATE client=VALUES(client);
+  `);
 
-  const insertOT = db.prepare(`
+  // Completed work orders
+  await pool.query(`
     INSERT INTO work_orders (
       id, client, material, quantity_kg, delivery_date, furnace_id, furnace_name,
       status, progress, phase, remaining_minutes, color, notes, badge,
       completed_date, estimated_time, real_time
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES
+      ('OT-2026-085', 'Maquinaria Industrial S.A.', 'Acero al Carbón', 1350, '11 / Nov / 2026', 'horno-a', 'Horno A', 'completed', 100, 'Colada Completa (100%)', 0, 'green', 'Calidad óptima.', 'LOGRADA EN TIEMPO Y FORMA', '11/Nov/2026', '4h', '3h 45m (¡Éxito en tiempo!)'),
+      ('OT-2026-084', 'Metalmecánica del Norte', 'Chatarra de Retorno', 950, '11 / Nov / 2026', 'horno-b', 'Horno B', 'completed', 100, 'Colada Completa (100%)', 0, 'green', 'Inoculación completada.', 'ENTREGADA A TIEMPO Y EN FORMA', '11/Nov/2026', '3.5h', '3h 20m'),
+      ('OT-2026-082', 'Fundición Minera Integral', 'Aleación Especial', 1800, '10 / Nov / 2026', 'horno-c', 'Horno C', 'completed', 100, 'Colada Completa (100%)', 0, 'green', 'Desgasificado con argón.', 'ENTREGADA A TIEMPO', '10/Nov/2026', '5h', '4h 50m')
+    ON DUPLICATE KEY UPDATE client=VALUES(client);
   `);
 
-  // Active OTs
-  insertOT.run(
-    'OT-2026-089',
-    'Maquinaria Industrial S.A.',
-    'Acero al Carbón',
-    1200,
-    '18 / Nov / 2026',
-    'horno-a',
-    'Horno A',
-    'in_progress',
-    85,
-    'Fusión (85%)',
-    25,
-    'orange',
-    'Monitorear temperatura de vaciado a 1550°C.',
-    null,
-    null,
-    null,
-    null
-  );
-
-  insertOT.run(
-    'OT-2026-090',
-    'Aceros del Bajío S.A.',
-    'Acero al Carbón',
-    1400,
-    '19 / Nov / 2026',
-    'horno-b',
-    'Horno B',
-    'in_progress',
-    75,
-    'Fusión (85%)',
-    25,
-    'red',
-    'Precalentamiento rápido optimizado.',
-    null,
-    null,
-    null,
-    null
-  );
-
-  insertOT.run(
-    'OT-2026-091',
-    'Estructuras Pesadas S.A.',
-    'Acero al Carbón',
-    1100,
-    '20 / Nov / 2026',
-    'horno-a',
-    'Horno A',
-    'in_progress',
-    85,
-    'Fusión (85%)',
-    25,
-    'red',
-    'Verificar escoria.',
-    null,
-    null,
-    null,
-    null
-  );
-
-  // Completed OTs
-  insertOT.run(
-    'OT-2026-085',
-    'Maquinaria Industrial S.A.',
-    'Acero al Carbón',
-    1350,
-    '11 / Nov / 2026',
-    'horno-a',
-    'Horno A',
-    'completed',
-    100,
-    'Colada Completa (100%)',
-    0,
-    'green',
-    'Calidad óptima.',
-    'LOGRADA EN TIEMPO Y FORMA',
-    '11/Nov/2026',
-    '4h',
-    '3h 45m (¡Éxito en tiempo!)'
-  );
-
-  insertOT.run(
-    'OT-2026-084',
-    'Metalmecánica del Norte',
-    'Chatarra de Retorno',
-    950,
-    '11 / Nov / 2026',
-    'horno-b',
-    'Horno B',
-    'completed',
-    100,
-    'Colada Completa (100%)',
-    0,
-    'green',
-    'Inoculación completada.',
-    'ENTREGADA A TIEMPO Y EN FORMA',
-    '11/Nov/2026',
-    '3.5h',
-    '3h 20m'
-  );
-
-  insertOT.run(
-    'OT-2026-082',
-    'Fundición Minera Integral',
-    'Aleación Especial',
-    1800,
-    '10 / Nov / 2026',
-    'horno-c',
-    'Horno C',
-    'completed',
-    100,
-    'Colada Completa (100%)',
-    0,
-    'green',
-    'Desgasificado con argón.',
-    'ENTREGADA A TIEMPO',
-    '10/Nov/2026',
-    '5h',
-    '4h 50m'
-  );
-
-  console.log('✅ Base de datos inicializada exitosamente.');
+  console.log('✅ Base de datos MySQL `ssmf_db` inicializada y cargada con éxito.');
 }
 
-export default db;
+export default pool;
