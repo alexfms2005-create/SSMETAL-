@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
+import TabPrioridades from './components/TabPrioridades';
 import TabAltaOT from './components/TabAltaOT';
 import TabProcesoFundicion from './components/TabProcesoFundicion';
 import TabOTsTerminadas from './components/TabOTsTerminadas';
@@ -7,7 +8,8 @@ import ModalReportes from './components/ModalReportes';
 import { initialFurnaces, initialActiveOTs, initialCompletedOTs } from './data/mockData';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('proceso');
+  const [activeTab, setActiveTab] = useState('prioridades');
+  const [prefilledOTData, setPrefilledOTData] = useState(null);
   const [furnaces, setFurnaces] = useState(initialFurnaces);
   const [activeOTs, setActiveOTs] = useState(initialActiveOTs);
   const [completedOTs, setCompletedOTs] = useState(initialCompletedOTs);
@@ -323,6 +325,17 @@ export default function App() {
     }
   };
 
+  // Handler: Pre-fill OT form from Backlog / Prioridades row
+  const handleSelectForOT = (item) => {
+    setPrefilledOTData({
+      client: item.cliente,
+      material: item.material,
+      quantityKg: item.porFundir > 0 ? item.porFundir : (item.porPedido || 1000),
+      notes: `Importado de Backlog (${item.semanaTitle || 'Semana'}). OC Externa: ${item.ocExterna || 'N/A'}, OC Interna: ${item.ocInterna || 'N/A'}. Pieza: ${item.descripcion}. Cantidad: ${item.cant} ${item.un}. Cód: ${item.codInterno || 'N/A'}. Estatus: ${item.estatus || 'N/A'}.`
+    });
+    setActiveTab('alta');
+  };
+
   return (
     <div className="min-h-screen bg-[#111317] text-gray-200 flex flex-col font-sans">
       {/* Top Header */}
@@ -334,11 +347,16 @@ export default function App() {
 
       {/* Main Tab Views */}
       <main className="flex-1 overflow-x-hidden">
+        {activeTab === 'prioridades' && (
+          <TabPrioridades onSelectForOT={handleSelectForOT} />
+        )}
+
         {activeTab === 'alta' && (
           <TabAltaOT
             furnaces={furnaces}
             onGenerateOT={handleGenerateOT}
             nextOTNumber={nextOTFolio}
+            prefilledData={prefilledOTData}
           />
         )}
 

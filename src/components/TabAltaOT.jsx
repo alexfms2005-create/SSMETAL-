@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Flame, Plus, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { availableMaterials } from '../data/mockData';
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
+export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber, prefilledData }) {
   const [otNumber] = useState(nextOTNumber || 'OT-2026-092');
   const [client, setClient] = useState('Maquinaria Industrial S.A.');
   const [selectedMaterials, setSelectedMaterials] = useState([
@@ -14,6 +14,18 @@ export default function TabAltaOT({ furnaces, onGenerateOT, nextOTNumber }) {
   ]);
   const [materialDropdown, setMaterialDropdown] = useState('');
   const [quantityKg, setQuantityKg] = useState('1200');
+
+  // Populate from prefilledData if navigated from Prioridades/Backlog
+  useEffect(() => {
+    if (prefilledData) {
+      if (prefilledData.client) setClient(prefilledData.client);
+      if (prefilledData.material) {
+        setSelectedMaterials([prefilledData.material]);
+      }
+      if (prefilledData.quantityKg) setQuantityKg(String(prefilledData.quantityKg));
+      if (prefilledData.notes) setNotes(prefilledData.notes);
+    }
+  }, [prefilledData]);
 
   // Fully functional calendar state (defaults to 18 Nov 2026 as in mockup)
   const [selectedDate, setSelectedDate] = useState({ day: 18, month: 10, year: 2026 }); // month 10 = Nov

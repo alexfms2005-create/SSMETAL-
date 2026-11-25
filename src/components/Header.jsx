@@ -2,6 +2,7 @@ import React from 'react';
 
 export default function Header({ activeTab, setActiveTab, currentTime }) {
   const tabs = [
+    { id: 'prioridades', label: 'Prioridades' },
     { id: 'alta', label: 'Alta de OT' },
     { id: 'proceso', label: 'Proceso de Fundición' },
     { id: 'terminadas', label: 'OTs Terminadas' },
