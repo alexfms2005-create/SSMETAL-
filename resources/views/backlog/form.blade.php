@@ -1,0 +1,16 @@
+@extends('layouts.app')
+@section('content')<div class="page-heading"><div><div class="eyebrow">PEDIDOS Y PROGRAMACIÓN</div><h1>{{ $order->exists?'Editar pedido '.$order->codigo:'Nuevo pedido' }}</h1><p>Compra, producto y material vinculados por catálogo.</p></div><a class="btn secondary" href="{{ route('backlog') }}">Volver al backlog</a></div>
+<form method="post" action="{{ $order->exists?route('orders.update',$order):route('orders.store') }}" class="panel stack">@csrf @if($order->exists)@method('PUT')@endif
+<div class="form-grid"><x-field name="tipo_pedido" label="Tipo de pedido" :value="$order->tipo_pedido??'fundicion'" :options="['fundicion'=>'Fundición','modelo'=>'Modelo']" :required="true"/>
+<x-field name="orden_compra_id" label="Orden de compra" :value="$order->orden_compra_id" :options="$purchases->mapWithKeys(fn($p)=>[$p->id=>$p->company->codigo.' · '.$p->client->nombre.' · Interior: '.($p->numero_interno??'—').' / Exterior: '.($p->numero_externo??'—')])->all()" :required="true"/>
+<x-field name="producto_id" label="Producto / código interno" :value="$order->producto_id" :options="$productos->mapWithKeys(fn($p)=>[$p->id=>$p->codigo_interno.' · '.$p->nombre])->all()" :required="true"/>
+<x-field name="material_id" label="Material requerido" :value="$order->material_id" :options="$materiales->pluck('nombre','id')->all()" :required="true"/>
+<x-field name="nivel_fundicion_id" label="Nivel de fundición" :value="$order->nivel_fundicion_id" :options="$levels->pluck('nombre','id')->all()"/>
+<x-field name="estado_proceso_id" label="Proceso / estatus" :value="$order->estado_proceso_id??$statuses->firstWhere('codigo','pendiente')->id" :options="$statuses->pluck('nombre','id')->all()" :required="true"/>
+<x-field name="cantidad" label="Cantidad de piezas" type="number" :min="1" :value="$order->cantidad??1" :required="true"/>
+<x-field name="peso_unitario_kg" label="Peso por pieza (kg)" type="number" step="0.001" min="0" :value="$order->peso_unitario_kg" :required="true"/>
+<x-field name="anio_programacion" label="Año de programación (opcional)" type="number" min="2020" :value="$order->anio_programacion"/>
+<x-field name="semana_programacion" label="Semana de programación (manual, opcional)" type="number" min="1" max="53" :value="$order->semana_programacion"/>
+</div><div class="checks"><label><input type="hidden" name="requiere_maquinado" value="0"><input type="checkbox" name="requiere_maquinado" value="1" @checked(old('requiere_maquinado',$order->requiere_maquinado))> Requiere maquinado</label><label><input type="hidden" name="modelo_recibido" value="0"><input type="checkbox" name="modelo_recibido" value="1" @checked(old('modelo_recibido',$order->exists?$order->modelo_recibido:true))> Modelo recibido</label></div>
+<p class="muted">Deja año y semana vacíos para mantener el pedido sin asignar. En el backlog se muestra el rango de fechas, sin agrupar por números de semana.</p><x-field name="observaciones" label="Notas / especificaciones" type="textarea" :value="$order->observaciones"/>
+<div class="actions"><button class="btn">Guardar pedido</button><a class="btn secondary" href="{{ route('catalogs.index','purchases') }}">Administrar compras</a><a class="btn secondary" href="{{ route('catalogs.index','productos') }}">Administrar productos</a></div></form>@endsection

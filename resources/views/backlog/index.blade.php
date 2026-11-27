@@ -1,0 +1,26 @@
+@extends('layouts.app')
+@section('content')
+<header class="backlog-heading">
+    <h1>Steel Fused Solutions and SS Metal Foundry</h1>
+    <div class="backlog-heading__bar">
+        <p>Pedidos, programación y seguimiento por proceso.</p>
+        @if(auth()->user()->canManage())
+            <a class="btn" href="{{ route('orders.create') }}">＋ Agregar pedido</a>
+        @endif
+    </div>
+</header>
+<div class="metrics"><article class="panel"><span>Partidas en la consulta</span><strong>{{ $stats['count'] }}</strong></article><article class="panel"><span>Peso pendiente</span><strong class="orange">{{ number_format($stats['weight'],2) }} <small>kg</small></strong></article><article class="panel"><span>Pedidos sin asignar</span><strong>{{ $stats['unassigned'] }}</strong></article></div>
+<div class="pills"><a class="{{ !request('tipo_pedido')?'selected':'' }}" href="{{ route('backlog',request()->except(['tipo_pedido','page'])) }}">Todos los pedidos</a><a class="{{ request('tipo_pedido')==='fundicion'?'selected':'' }}" href="{{ route('backlog',array_merge(request()->except('page'),['tipo_pedido'=>'fundicion'])) }}">Pedidos de fundición</a><a class="{{ request('tipo_pedido')==='modelo'?'selected':'' }}" href="{{ route('backlog',array_merge(request()->except('page'),['tipo_pedido'=>'modelo'])) }}">Pedidos de modelo</a><a class="{{ request('assignment')==='unassigned'?'selected':'' }}" href="{{ route('backlog',array_merge(request()->except(['page','from','to']),['assignment'=>'unassigned'])) }}">Sin asignar</a></div>
+<form method="get" class="panel filters">@if(request('tipo_pedido'))<input type="hidden" name="tipo_pedido" value="{{ request('tipo_pedido') }}">@endif
+<x-field name="q" label="Buscar" :value="request('q')" placeholder="Cliente, producto, código, OC…"/>
+<x-field name="empresa_id" label="Empresa" :value="request('empresa_id')" :options="$empresas->pluck('nombre','id')->all()"/>
+<x-field name="status_id" label="Proceso / estatus" :value="request('status_id')" :options="$statuses->pluck('nombre','id')->all()"/>
+<x-field name="material_id" label="Material" :value="request('material_id')" :options="$materiales->pluck('nombre','id')->all()"/>
+<x-field name="from" label="Periodo desde" type="date" :value="request('from')"/><x-field name="to" label="Periodo hasta" type="date" :value="request('to')"/>
+<x-field name="assignment" label="Programación" :value="request('assignment')" :options="['unassigned'=>'Sin asignar','assigned'=>'Con periodo asignado']"/>
+<div class="actions"><button class="btn">Buscar</button><a class="btn secondary" href="{{ route('backlog') }}">Limpiar</a></div></form>
+<section class="panel table-panel"><div class="table-title"><h2>Órdenes y pedidos</h2><span class="muted">Periodos por fecha · asignación manual</span></div><div class="table-scroll"><table><thead><tr>@foreach(['Pedido / OT','Empresa','OC exterior','OC interior','Cliente','Material requerido','Producto','Fecha OC','Compromiso','Piezas','Peso / pieza','Pendiente kg','Maquinado','Código interno','Nivel fundición','Periodo asignado','Proceso / estatus','Acciones'] as $label)<th>{{ $label }}</th>@endforeach</tr></thead><tbody>
+@forelse($pedidos as $o)<tr><td><strong>{{ $o->codigo }}</strong>@foreach($o->workOrders as $ot)<a class="subtext" href="{{ route($ot->estado==='terminado'?'terminado':'process') }}">{{ $ot->codigo }}</a>@endforeach<small>{{ $o->tipo_pedido==='modelo'?'Modelo':'Fundición' }}</small></td><td><span class="badge">{{ $o->purchaseOrder->company->codigo }}</span></td><td>{{ $o->purchaseOrder->numero_externo??'—' }}</td><td>{{ $o->purchaseOrder->numero_interno??'—' }}</td><td>{{ $o->purchaseOrder->client->nombre }}</td><td>{{ $o->material->nombre }}</td><td class="description">{{ $o->product->nombre }}</td><td>{{ $o->purchaseOrder->fecha_compra?->format('d/m/Y')??'—' }}</td><td>{{ $o->purchaseOrder->fecha_compromiso?->format('d/m/Y')??'—' }}</td><td class="numeric">{{ $o->cantidad }}</td><td class="numeric">{{ number_format($o->peso_unitario_kg,3) }}</td><td class="numeric orange">{{ number_format($o->peso_por_fundir_kg,3) }}</td><td>{{ $o->requiere_maquinado?'Sí':'No' }}</td><td>{{ $o->product->codigo_interno }}</td><td>{{ $o->castingLevel?->nombre??'Sin definir' }}</td><td>@if($o->inicio_programacion){{ $o->inicio_programacion->format('d/m/Y') }}<small>al {{ $o->fin_programacion->format('d/m/Y') }}</small>@else<span class="badge warning">Sin asignar</span>@endif</td><td><span class="badge {{ $o->processStatus->codigo==='modelo_pendiente'?'danger':'' }}">{{ $o->processStatus->nombre }}</span>@unless($o->modelo_recibido)<small class="red">Modelo faltante</small>@endunless</td><td><div class="actions">@if(auth()->user()->canManage())<a class="btn secondary small" href="{{ route('orders.edit',$o) }}">Editar / programar</a>@endif @if(auth()->user()->canOperate() && ($o->tipo_pedido==='modelo'?$o->cantidad_pendiente>0:$o->peso_por_fundir_kg>0) && !$o->workOrders->contains('estado','en_proceso'))<a class="btn small" href="{{ route('work-orders.create',['order'=>$o->id]) }}">Generar OT</a>@endif</div></td></tr>
+@empty<tr><td colspan="18" class="empty">No hay pedidos con estos filtros.</td></tr>@endforelse</tbody></table></div></section>
+{{ $pedidos->links('components.pagination') }}
+@endsection
